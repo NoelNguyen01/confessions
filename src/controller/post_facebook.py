@@ -6,5 +6,4 @@ def post_facebook():
 
     if result["success"]:
         return {"message": "Successfully posted", "success": True}, 200
-    logger.error(result['data'])
     return {"message": "There was an error on the server side", "success": False}, 500

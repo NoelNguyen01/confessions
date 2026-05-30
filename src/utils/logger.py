@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-def setup_logger():
+def setup_logger(): #TODO: fix bug logger
     log_file_path = Path("logs/app.log")
     log_file_path.parent.mkdir(parents=True, exist_ok=True)
     
