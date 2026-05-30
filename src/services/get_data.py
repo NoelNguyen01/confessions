@@ -42,6 +42,7 @@ def get_data_sheet() -> dict:
             "id": id_confession,
             "post_time": {safe_email: datetime.now()},
             "count": 0,
+            "active": False
         }
 
         _id = collection.find_one({"id": id_confession}, {"post_time": 1, "_id": 0})

@@ -1,7 +1,8 @@
 from src.routes.get_data import data_bp
+from src.routes.post_facebook import post_bp
 
 all_blueprints = {
-    "": [data_bp],
+    "": [data_bp, post_bp],
 }
 
 
