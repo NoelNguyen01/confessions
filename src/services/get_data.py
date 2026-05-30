@@ -5,7 +5,7 @@ from src.extension.db import db
 from datetime import datetime, timedelta
 from src.utils.pares_json import parse_json
 from src.utils.upset_count import get_next_cfs_number
-
+from os import getenv
 
 def get_data_sheet() -> dict:
     try:
@@ -22,14 +22,14 @@ def get_data_sheet() -> dict:
         )
         client = gspread.authorize(creds)
 
-        sheet = client.open("Confession_app").sheet1
+        sheet = client.open(str(getenv("SHEET_NAME"))).sheet1
         data = sheet.get_all_records()
         ###
 
         latest_entry = data[-1]  # Get last data in sheet
-
-        confession = latest_entry.get("Confession của bạn là gì?", "") or ""
-        email_client = latest_entry.get("Gmail liên hệ của bạn là gì?", None)
+        
+        confession = latest_entry.get(str(getenv("CONFESSION_QUESTION")), "") or ""
+        email_client = latest_entry.get(str(getenv("EMAIL_QUESTION")), None)
 
         safe_email = email_client.replace(".", "_") if email_client else "unknown"
 
