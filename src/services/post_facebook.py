@@ -1,7 +1,7 @@
 import requests
 from os import getenv
 from src.extension.db import db
-
+from utils.logger import logger
 
 def post_fanpage(): #TODO: perform the time checking function
     try:
@@ -11,6 +11,7 @@ def post_fanpage(): #TODO: perform the time checking function
         list_confession = list(cursor_data)
 
         if len(list_confession) == 0:
+            logger.error("no data to post")
             return {"message": "no data to post", "success": False}
 
         page_id = str(getenv("PAGE_ID"))
@@ -36,13 +37,17 @@ def post_fanpage(): #TODO: perform the time checking function
                 collection_confession.update_one(
                     {"id": _id}, {"$set": {"active": True}}
                 )
+            logger.log("Posted successfully")
             return {"message": "Posted successfully", "success": True, "data": res_data}
+        logger.error(res_data)
         return {
             "message": "There was an error on Facebooks part",
             "success": False,
             "data": res_data,
         }
     except requests.exceptions.Timeout:
+        logger.error("Request to Facebook timed out")
         return {"message": "Request to Facebook timed out", "success": False}
     except Exception as e:
+        logger.error(e)
         return {"message": f"Internal Server Error: {str(e)}", "success": False}
