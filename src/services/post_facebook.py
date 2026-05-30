@@ -1,7 +1,7 @@
 import requests
 from os import getenv
 from src.extension.db import db
-from utils.logger import logger
+from src.utils.logger import logger
 
 def post_fanpage(): #TODO: perform the time checking function
     try:

@@ -1,5 +1,5 @@
 from src.services.post_facebook import post_fanpage
-from utils.logger import logger
+from src.utils.logger import logger
 
 def post_facebook():
     result = post_fanpage()
