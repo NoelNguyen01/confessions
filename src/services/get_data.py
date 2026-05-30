@@ -4,6 +4,7 @@ from src.utils.create_id import generate_confession_id
 from src.extension.db import db
 from datetime import datetime, timedelta
 from src.utils.pares_json import parse_json
+from src.utils.upset_count import get_next_cfs_number
 
 
 def get_data_sheet() -> dict:
@@ -42,7 +43,7 @@ def get_data_sheet() -> dict:
             "id": id_confession,
             "post_time": {safe_email: datetime.now()},
             "count": 0,
-            "active": False
+            "active": False,
         }
 
         _id = collection.find_one({"id": id_confession}, {"post_time": 1, "_id": 0})
@@ -51,9 +52,8 @@ def get_data_sheet() -> dict:
             post_times = _id.get("post_time", {})
             if post_times:
                 lastest_time = max(post_times.values())
-            if (datetime.now() - lastest_time) > timedelta(
-                hours=24
-            ):  # HACK: 2 email unknown, how to get post time in last gmail in database? - 'success': True
+            if (datetime.now() - lastest_time) > timedelta(hours=24):
+                data_output["cfs"] = get_next_cfs_number()
                 collection.insert_one(data_output)
                 return {
                     "message": "Successfully saved confession",
@@ -75,6 +75,7 @@ def get_data_sheet() -> dict:
                 "data": parse_json(data_output),
             }
 
+        data_output["cfs"] = get_next_cfs_number()
         collection.insert_one(data_output)
         return {
             'message"': "Done to save data",

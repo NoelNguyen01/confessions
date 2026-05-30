@@ -1,4 +1,9 @@
 from src.services.post_facebook import post_fanpage
 
+
 def post_facebook():
-    return post_fanpage()
+    result = post_fanpage()
+
+    if result["success"]:
+        return {"message": "Successfully posted", "success": True}, 200
+    return {"message": "There was an error on the server side", "success": False}, 500
