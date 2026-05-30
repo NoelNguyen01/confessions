@@ -3,9 +3,8 @@ import requests
 
 def dang_bai_fanpage():
     # Điền chính xác thông tin thực tế của og vào đây
-    page_id = "1005200049343949"
-    page_token = "EAGJpK9z6nc0BRkH7ZAZAARbCAzbxupX1dnXLW6VO4UomT8QSZAZCfKICSsF1ZBV0ZBfr4RSqncgEhL2BDp3lAEwHVvkHJKRmfHV6FsuAMcDegkuVAPeZCQ0AbwcFs9ZCFmdFeKHSScJJY0RqNZB2F4e0975uVaMRb8AWMo3qouKDc4Wn6sAvvhPum2ZB5Gi7sZClktE9ZCI323vCzbYpgmaFdgojQneewKyhF23quqAtfo0ZD"
-
+    page_id = ""
+    page_token = ""
     url = f"https://graph.facebook.com/v25.0/{page_id}/feed"
 
     payload = {
