@@ -7,12 +7,12 @@ from src.utils.pares_json import parse_json
 from src.utils.upset_count import get_next_cfs_number
 from os import getenv
 
+
 def get_data_sheet() -> dict:
     try:
 
         collection = db.confession_data
 
-        ####
         scope = [
             "https://spreadsheets.google.com/feeds",
             "https://www.googleapis.com/auth/drive",
@@ -24,10 +24,9 @@ def get_data_sheet() -> dict:
 
         sheet = client.open(str(getenv("SHEET_NAME"))).sheet1
         data = sheet.get_all_records()
-        ###
 
-        latest_entry = data[-1]  # Get last data in sheet
-        
+        latest_entry = data[-1]
+
         confession = latest_entry.get(str(getenv("CONFESSION_QUESTION")), "") or ""
         email_client = latest_entry.get(str(getenv("EMAIL_QUESTION")), None)
 

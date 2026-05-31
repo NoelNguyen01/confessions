@@ -3,7 +3,8 @@ from os import getenv
 from src.extension.db import db
 from src.utils.logger import logger
 
-def post_fanpage(): #TODO: perform the time checking function
+
+def post_fanpage():  # TODO: perform the time checking function
     try:
         collection_confession = db.confession_data
 
