@@ -6,5 +6,6 @@ load_dotenv(find_dotenv(), override=True)
 
 class Config:
     api_key = getenv("GOOGLE_AI_API_KEY")
-    AI_MODEL_NAME = getenv("AI_MODEL_NAME", "gemma-4-31b-it")
-    AI_MODERATION_PROMPT = getenv("AI_GOOGLE_MODERATION_PROMPT", "")
+    AI_MODEL_NAME = getenv(
+        "AI_MODEL_NAME", "gemma-4-31b-it"
+    )  # model suggestion: gemini-3.1-flash-lite
