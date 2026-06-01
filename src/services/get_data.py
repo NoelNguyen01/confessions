@@ -23,9 +23,20 @@ def get_data_sheet() -> dict:
         client = gspread.authorize(creds)
 
         sheet = client.open(str(getenv("SHEET_NAME"))).sheet1
-        data = sheet.get_all_records()
+        col_a = sheet.col_values(1)
+        last_index = len(col_a)
 
-        latest_entry = data[-1]
+        if last_index < 2:
+            print("The sheet has no data outside of the header", flush=True)
+            return {"message": "Sheet has no data", "success": False, "data": []}
+
+        header = sheet.row_values(1)
+        last_row = sheet.row_values(last_index)
+
+        header = [h.strip() for h in header]
+        last_row += [""] * (len(header) - len(last_row))
+
+        latest_entry = dict(zip(header, [v.strip() for v in last_row]))
 
         confession = latest_entry.get(str(getenv("CONFESSION_QUESTION")), "") or ""
         email_client = latest_entry.get(str(getenv("EMAIL_QUESTION")), None)
@@ -64,8 +75,8 @@ def get_data_sheet() -> dict:
                 {"id": id_confession},
                 {
                     "$inc": {"count": 1},
-                    "$addToSet": {"authors": email_client},
-                    "$set": {f"post_time.{email_client}": datetime.now()},
+                    "$addToSet": {"authors": safe_email},
+                    "$set": {f"post_time.{safe_email}": datetime.now()},
                 },
             )
             return {
