@@ -1,8 +1,9 @@
 from src.routes.get_data import data_bp
 from src.routes.post_facebook import post_bp
+from src.routes.moderator import censor_bp
 
 all_blueprints = {
-    "": [data_bp, post_bp],
+    "": [data_bp, post_bp, censor_bp],
 }
 
 
