@@ -6,6 +6,7 @@ from src.prompt.moderation import _return_prompt_from_list_cfs
 from src.extension.db import db
 from datetime import datetime
 
+#TODO: How the hell can you set the active status to true when that status only shows "upload completed"???
 
 def chat_main_ai(ai_model: str, content_input: str, confession_input: str = "") -> str:
     try:
@@ -68,7 +69,7 @@ def _get_check_confession():
                 {
                     "$set": {
                         "data_ai_result": _result,
-                        "active": True,
+                        "censored": True
                     }
                 },
             )

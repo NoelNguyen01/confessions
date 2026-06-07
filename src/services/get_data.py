@@ -1,97 +1,107 @@
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from src.utils.create_id import generate_confession_id
-from src.extension.db import db
-from datetime import datetime, timedelta
 from src.utils.pares_json import parse_json
 from src.utils.upset_count import get_next_cfs_number
+from datetime import datetime, timedelta, timezone
 from os import getenv
+from functools import lru_cache
+from src.utils.logger import logger
+from config import Config
 
 
-def get_data_sheet() -> dict:
+@lru_cache(maxsize=1)
+def _get_sheet_client():
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/drive",
+    ]
+    creds = ServiceAccountCredentials.from_json_keyfile_name(
+        "credentials.json", scope
+    )
+    return gspread.authorize(creds)
+
+
+def _get_sheet():
     try:
+        client = _get_sheet_client()
+        return client.open(str(getenv("SHEET_NAME"))).sheet1
+    except gspread.exceptions.APIError:
+        _get_sheet_client.cache_clear()
+        client = _get_sheet_client()
+        return client.open(str(getenv("SHEET_NAME"))).sheet1
 
-        collection = db.confession_data
+def _fetch_latest_entry(sheet) -> dict | None:
+    col_a = sheet.col_values(1)
+    last_index = len(col_a)
 
-        scope = [
-            "https://spreadsheets.google.com/feeds",
-            "https://www.googleapis.com/auth/drive",
-        ]
-        creds = ServiceAccountCredentials.from_json_keyfile_name(
-            "credentials.json", scope
-        )
-        client = gspread.authorize(creds)
+    if last_index < 2:
+        logger.info("Sheet has no data outside of the header")
+        return None
 
-        sheet = client.open(str(getenv("SHEET_NAME"))).sheet1
-        col_a = sheet.col_values(1)
-        last_index = len(col_a)
+    header = [h.strip() for h in sheet.row_values(1)]
+    last_row = sheet.row_values(last_index)
+    last_row += [""] * (len(header) - len(last_row))
 
-        if last_index < 2:
-            print("The sheet has no data outside of the header", flush=True)
-            return {"message": "Sheet has no data", "success": False, "data": []}
+    return dict(zip(header, [v.strip() for v in last_row]))
 
-        header = sheet.row_values(1)
-        last_row = sheet.row_values(last_index)
 
-        header = [h.strip() for h in header]
-        last_row += [""] * (len(header) - len(last_row))
+def _build_confession_doc(confession: str, safe_email: str) -> dict:
+    return {
+        "Confession": confession,
+        "authors": [safe_email],
+        "id": generate_confession_id(confession),
+        "post_time": {safe_email: datetime.now(timezone.utc)},
+        "count": 0,
+        "active": False,
+    }
 
-        latest_entry = dict(zip(header, [v.strip() for v in last_row]))
+def _save_confession(collection, confession: str, safe_email: str) -> dict:
+    now = datetime.now(timezone.utc)
+    doc = _build_confession_doc(confession, safe_email)
+    confession_id = doc["id"]
 
-        confession = latest_entry.get(str(getenv("CONFESSION_QUESTION")), "") or ""
-        email_client = latest_entry.get(str(getenv("EMAIL_QUESTION")), None)
+    existing = collection.find_one(
+        {"id": confession_id},
+        {"post_time": 1, "authors": 1, "_id": 0}
+    )
 
-        safe_email = email_client.replace(".", "_") if email_client else "unknown"
-
-        id_confession = generate_confession_id(confession)
-
-        data_output = {
-            "Confession": confession,
-            "authors": [
-                safe_email,
-            ],
-            "id": id_confession,
-            "post_time": {safe_email: datetime.now()},
-            "count": 0,
-            "active": False,
+    if not existing:
+        doc["cfs"] = get_next_cfs_number()
+        collection.insert_one(doc)
+        logger.info("New confession inserted: %s", confession_id)
+        return {
+            "message": "Successfully saved confession",
+            "success": True,
+            "data": parse_json(doc),
         }
 
-        _id = collection.find_one({"id": id_confession}, {"post_time": 1, "_id": 0})
+    post_times: dict = existing.get("post_time", {})
+    last_time_by_email = post_times.get(safe_email)
 
-        if _id:
-            post_times = _id.get("post_time", {})
-            if post_times:
-                lastest_time = max(post_times.values())
-            if (datetime.now() - lastest_time) > timedelta(hours=24):
-                data_output["cfs"] = get_next_cfs_number()
-                collection.insert_one(data_output)
-                return {
-                    "message": "Successfully saved confession",
-                    "success": True,
-                    "data": parse_json(data_output),
-                }
+    if last_time_by_email:
+        if last_time_by_email.tzinfo is None:
+            last_time_by_email = last_time_by_email.replace(tzinfo=timezone.utc)
 
-            collection.update_one(
-                {"id": id_confession},
-                {
-                    "$inc": {"count": 1},
-                    "$addToSet": {"authors": safe_email},
-                    "$set": {f"post_time.{safe_email}": datetime.now()},
-                },
-            )
+        if (now - last_time_by_email) < timedelta(hours=Config.REPOST_COOLDOWN_HOURS):
+            logger.info("Duplicate submission from %s within cooldown", safe_email)
             return {
-                "message": "Successfully saved count confession",
-                "success": True,
-                "data": parse_json(data_output),
+                "message": "You already submitted this confession recently",
+                "success": False,
+                "data": [],
             }
 
-        data_output["cfs"] = get_next_cfs_number()
-        collection.insert_one(data_output)
-        return {
-            'message"': "Done to save data",
-            "data": parse_json(data_output),
-            "success": True,
-        }
-
-    except Exception as e:
-        return {"message": str(e), "success": False, "data": []}
+    collection.update_one(
+        {"id": confession_id},
+        {
+            "$inc": {"count": 1},
+            "$addToSet": {"authors": safe_email},
+            "$set": {f"post_time.{safe_email}": now},
+        },
+    )
+    logger.info("Confession count updated: %s by %s", confession_id, safe_email)
+    return {
+        "message": "Successfully updated confession count",
+        "success": True,
+        "data": parse_json(doc),
+    }

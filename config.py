@@ -9,3 +9,4 @@ class Config:
     AI_MODEL_NAME = getenv(
         "AI_MODEL_NAME", "gemma-4-31b-it"
     )  # model suggestion: gemini-3.1-flash-lite
+    REPOST_COOLDOWN_HOURS = 24
