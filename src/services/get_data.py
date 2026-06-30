@@ -16,9 +16,7 @@ def _get_sheet_client():
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive",
     ]
-    creds = ServiceAccountCredentials.from_json_keyfile_name(
-        "credentials.json", scope
-    )
+    creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
     return gspread.authorize(creds)
 
 
@@ -30,6 +28,7 @@ def _get_sheet():
         _get_sheet_client.cache_clear()
         client = _get_sheet_client()
         return client.open(str(getenv("SHEET_NAME"))).sheet1
+
 
 def _fetch_latest_entry(sheet) -> dict | None:
     col_a = sheet.col_values(1)
@@ -56,14 +55,14 @@ def _build_confession_doc(confession: str, safe_email: str) -> dict:
         "active": False,
     }
 
+
 def _save_confession(collection, confession: str, safe_email: str) -> dict:
     now = datetime.now(timezone.utc)
     doc = _build_confession_doc(confession, safe_email)
     confession_id = doc["id"]
 
     existing = collection.find_one(
-        {"id": confession_id},
-        {"post_time": 1, "authors": 1, "_id": 0}
+        {"id": confession_id}, {"post_time": 1, "authors": 1, "_id": 0}
     )
 
     if not existing:

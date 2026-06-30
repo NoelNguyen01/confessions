@@ -28,8 +28,7 @@ def _build_message(confessions: list) -> str:
 def _mark_confessions(collection, confession_ids: list, active: bool) -> None:
     """Cập nhật trạng thái active cho danh sách confession."""
     collection.update_many(
-        {"_id": {"$in": confession_ids}},
-        {"$set": {"active": active}}
+        {"_id": {"$in": confession_ids}}, {"$set": {"active": active}}
     )
 
 
@@ -77,8 +76,7 @@ def post_fanpage() -> dict:
     try:
         # ── 2. Lấy tối đa 50 confession, sắp xếp theo thứ tự ──
         list_confession = list(
-            collection_confession
-            .find({"active": False})
+            collection_confession.find({"active": False})
             .sort("cfs", 1)
             .limit(CONFESSION_LIMIT)
         )
