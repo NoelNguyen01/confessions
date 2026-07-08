@@ -255,7 +255,7 @@ ID của page ông muốn đăng.
 ## 9) Troubleshooting
 
 ### 9.1 `e bị rỗng`
-Ông chạy script bằng nút Run trong Apps Script editor.  
+Bạn chạy script bằng nút Run trong Apps Script editor.  
 `onFormSubmit(e)` chỉ có `e` khi chạy từ Trigger (form submit).
 
 ### 9.2 Server nhận ping nhưng không đọc được sheet
