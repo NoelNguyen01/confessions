@@ -168,16 +168,16 @@ def post_fanpage() -> dict:
 
         confession_ids = [c["_id"] for c in list_confession]
 
-        # ── 3. Đánh dấu "đang xử lý" trước khi gọi API ──
+        # ── 3. Đánh dấu "đang xử lý" trước khi gửi ──
         _mark_confessions(collection_confession, confession_ids, active=True)
 
-        # ── 4. Xử lý Webhook (Nếu được cấu hình) ──
+        # ── 4. Xử lý Webhook (Nếu dùng Webhook thì KHÔNG CẦN Token) ──
         webhook_url = str(getenv("FB_WEBHOOK_URL", "")).strip().strip('"').strip("'")
         env_page_id = str(getenv("PAGE_ID", "")).strip().strip('"').strip("'")
         raw_token = str(getenv("ACCESS_TOKEN", "")).strip().strip('"').strip("'")
 
         if webhook_url:
-            print(f"   🚀 Đang gửi bài qua Webhook Tự Động: {webhook_url[:30]}...", flush=True)
+            print(f"   🚀 Chế độ Webhook Tự Động: Đang gửi bài tới {webhook_url[:35]}...", flush=True)
             message_text = _build_message(list_confession)
             try:
                 # Sử dụng parse_json an toàn xử lý ObjectId và datetime
@@ -185,26 +185,35 @@ def post_fanpage() -> dict:
                 payload = {"message": message_text, "confessions": clean_confessions}
                 res = requests.post(webhook_url, json=payload, timeout=30)
                 print(f"   Webhook response: status={res.status_code}, content={res.text[:150]}", flush=True)
-                if res.status_code in (200, 201, 204):
+                
+                if res.status_code in (200, 201, 202, 204):
                     logger.info("post_fanpage: posted via webhook successfully")
+                    print("   🎉 Gửi Webhook thành công! Đã đăng bài qua Webhook.", flush=True)
                     return {"message": "Posted successfully via webhook", "success": True}
+                else:
+                    print(f"   ❌ Webhook trả về status code lỗi ({res.status_code})", flush=True)
+                    _mark_confessions(collection_confession, confession_ids, active=False)
+                    return {"message": f"Webhook returned HTTP {res.status_code}", "success": False}
             except Exception as w_err:
-                print(f"   ❌ LỖI Webhook: [{type(w_err).__name__}] {w_err}", flush=True)
+                print(f"   ❌ LỖI kết nối Webhook: [{type(w_err).__name__}] {w_err}", flush=True)
+                _mark_confessions(collection_confession, confession_ids, active=False)
+                return {"message": f"Webhook error: {w_err}", "success": False}
 
+        # ── 5. Nếu KHÔNG DÙNG Webhook -> Mới kiểm tra Facebook Access Token ──
         if not raw_token:
-            raise EnvironmentError("ACCESS_TOKEN chưa được cấu hình trong biến môi trường (.env)")
+            print("   ⚠️ Bạn chưa cấu hình FB_WEBHOOK_URL cũng như ACCESS_TOKEN trong .env!", flush=True)
+            _mark_confessions(collection_confession, confession_ids, active=False)
+            return {"message": "Neither FB_WEBHOOK_URL nor ACCESS_TOKEN is configured", "success": False}
 
-        # ── 5. Resolve Page Access Token & Page ID ──
+        # ── 6. Resolve Page Access Token & Page ID ──
         page_token, page_id = _resolve_page_token(raw_token, env_page_id)
 
-        # ── 6. Đăng bài lên Facebook Graph API ──
-        # Danh sách Endpoint hợp lệ để thử đăng
+        # ── 7. Đăng bài lên Facebook Graph API ──
         candidate_endpoints = []
         if page_id:
             candidate_endpoints.append(f"https://graph.facebook.com/v22.0/{page_id}/feed")
         candidate_endpoints.append("https://graph.facebook.com/v22.0/me/feed")
 
-        # Loại bỏ endpoint trùng
         seen_ep = set()
         candidate_endpoints = [e for e in candidate_endpoints if e and not (e in seen_ep or seen_ep.add(e))]
 
@@ -214,12 +223,10 @@ def post_fanpage() -> dict:
         for endpoint_url in candidate_endpoints:
             print(f"   🚀 Thử đăng bài lên Facebook Endpoint: {endpoint_url}...", flush=True)
 
-            # Standard Form-urlencoded payload for Facebook Graph API
             payload = {
                 "message": message_text,
                 "access_token": page_token
             }
-            # Bỏ các value None / empty
             payload = {k: v for k, v in payload.items() if v is not None and v != ""}
 
             try:
@@ -238,7 +245,6 @@ def post_fanpage() -> dict:
 
                 last_res = res_data
 
-                # Debug chi tiết khi gặp lỗi
                 if isinstance(res_data, dict) and "error" in res_data:
                     err_info = res_data["error"]
                     err_code = err_info.get("code")
@@ -248,16 +254,9 @@ def post_fanpage() -> dict:
                     fbtrace = err_info.get("fbtrace_id")
                     print(f"   ❌ Facebook Error: Code={err_code}, Subcode={err_sub}, Type={err_type}, Message={err_msg}, fbtrace_id={fbtrace}", flush=True)
 
-                    if err_code in (1, 100, 190, 200):
-                        print("   💡 [HƯỚNG DẪN FIX FACEBOOK GRAPH API LỖI]:", flush=True)
-                        print("      - Token sử dụng phải là PAGE ACCESS TOKEN (không phải User Token đơn thuần).", flush=True)
-                        print("      - Facebook App cần các quyền (Permissions): `pages_manage_posts`, `pages_read_engagement`, `pages_show_list`.", flush=True)
-                        print("      - Nếu token hết hạn, hãy làm mới (Refresh Token) hoặc tạo Long-Lived Page Access Token.", flush=True)
-
             except Exception as req_err:
                 print(f"   ⚠️ Lỗi kết nối endpoint {endpoint_url}: [{type(req_err).__name__}] {req_err}", flush=True)
 
-        # Facebook lỗi → rollback active = False
         logger.error("post_fanpage: Facebook error %s", last_res)
         _mark_confessions(collection_confession, confession_ids, active=False)
         return {
@@ -265,10 +264,6 @@ def post_fanpage() -> dict:
             "success": False,
             "data": last_res
         }
-
-    except EnvironmentError as e:
-        logger.error("post_fanpage: config error — %s", e)
-        return {"message": str(e), "success": False}
 
     except requests.exceptions.Timeout:
         logger.error("post_fanpage: request timed out")
@@ -283,6 +278,6 @@ def post_fanpage() -> dict:
         return {"message": f"Internal Server Error: {str(e)}", "success": False}
 
     finally:
-        # ── 7. Luôn giải phóng lock dù thành công hay thất bại ──
         _release_lock(lock_collection)
+
 
