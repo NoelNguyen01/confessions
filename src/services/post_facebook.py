@@ -122,29 +122,40 @@ def post_fanpage() -> dict:
         except Exception as t_err:
             print(f"   ⚠️ Token exchange info: {t_err}", flush=True)
 
-        # Danh sách endpoint thử nghiệm (/me/feed là chuẩn nhất khi dùng Page Token)
+        # Danh sách endpoint thử nghiệm
         candidate_endpoints = [
-            f"https://graph.facebook.com/v22.0/me/feed",
+            "https://graph.facebook.com/v22.0/me/feed",
             f"https://graph.facebook.com/v22.0/{env_page_id}/feed",
-            f"https://graph.facebook.com/v22.0/1327276117125256/feed"
+            "https://graph.facebook.com/v22.0/1327276117125256/feed",
+            "https://graph.facebook.com/me/feed",
+            f"https://graph.facebook.com/{env_page_id}/feed",
         ]
+        # Xóa trùng
+        seen_ep = set()
+        candidate_endpoints = [e for e in candidate_endpoints if e and not (e in seen_ep or seen_ep.add(e))]
 
         last_res = None
+        message_text = _build_message(list_confession)
+
         for endpoint_url in candidate_endpoints:
             print(f"   🚀 Thử đăng bài lên Facebook Endpoint: {endpoint_url}...", flush=True)
-            payload = {
-                "message": _build_message(list_confession),
-                "access_token": page_token,
-            }
 
-            response = requests.post(endpoint_url, data=payload, timeout=30)
-            res_data = response.json()
-            print(f"   Facebook API response: status={response.status_code}, data={res_data}", flush=True)
+            # Đảm bảo truyền access_token qua cả params, headers lẫn data
+            params = {"access_token": page_token}
+            headers = {"Authorization": f"Bearer {page_token}"}
+            payload = {"message": message_text, "access_token": page_token}
 
-            if response.status_code == 200 and "id" in res_data:
-                logger.info("post_fanpage: posted %d confessions to %s", len(list_confession), endpoint_url)
-                return {"message": "Posted successfully", "success": True, "data": res_data}
-            last_res = res_data
+            try:
+                response = requests.post(endpoint_url, params=params, data=payload, headers=headers, timeout=30)
+                res_data = response.json()
+                print(f"   Facebook API response: status={response.status_code}, data={res_data}", flush=True)
+
+                if response.status_code == 200 and "id" in res_data:
+                    logger.info("post_fanpage: posted %d confessions to %s", len(list_confession), endpoint_url)
+                    return {"message": "Posted successfully", "success": True, "data": res_data}
+                last_res = res_data
+            except Exception as req_err:
+                print(f"   ⚠️ Lỗi kết nối endpoint {endpoint_url}: {req_err}", flush=True)
 
         # Facebook lỗi → rollback
         logger.error("post_fanpage: Facebook error %s", last_res)
