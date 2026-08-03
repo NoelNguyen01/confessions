@@ -87,13 +87,15 @@ def chat_main_ai(ai_model: str, content_input: str, confession_input: str = "") 
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={
                     "Authorization": f"Bearer {Config.groq_api_key}",
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    "User-Agent": "Mozilla/5.0"
                 },
                 data=json.dumps({
                     "model": "llama-3.3-70b-versatile",
                     "messages": [{"role": "user", "content": full_prompt}]
                 }).encode('utf-8')
             )
+
             with urllib.request.urlopen(req, timeout=15) as resp:
                 res_body = json.loads(resp.read().decode('utf-8'))
                 groq_text = res_body['choices'][0]['message']['content']
