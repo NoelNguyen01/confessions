@@ -78,7 +78,25 @@ prompt_AI1 = """
 """
 
 
-def _return_prompt_from_list_cfs(**confession: str) -> str:
+import json
+
+
+def _return_prompt_from_list_cfs(confession_data=None, **kwargs) -> str:
+    if confession_data is None:
+        confession_data = kwargs
+
+    if isinstance(confession_data, dict):
+        formatted_list = [
+            {"id_origin": cfs_id, "text": cfs_text}
+            for cfs_text, cfs_id in confession_data.items()
+        ]
+    elif isinstance(confession_data, list):
+        formatted_list = confession_data
+    else:
+        formatted_list = [str(confession_data)]
+
+    confession_str = json.dumps(formatted_list, ensure_ascii=False, indent=2)
+
     prompt_AI1_v2 = f"""
         Bạn là chuyên gia kiểm duyệt nội dung mạng xã hội với kinh nghiệm phát hiện vi phạm tinh vi.
         Nhiệm vụ: Chấm điểm confession theo thang 0.0–100.0, ưu tiên phân tích INTENT (ý đồ) hơn từ ngữ bề mặt.
@@ -182,6 +200,8 @@ def _return_prompt_from_list_cfs(**confession: str) -> str:
 
         {format_input}
 
-        Confession: {confession}
+        Danh sách Confession:
+        {confession_str}
     """
     return prompt_AI1_v2
+
