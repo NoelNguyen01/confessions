@@ -96,7 +96,7 @@ def post_fanpage() -> dict:
         if not page_id or not page_token:
             raise EnvironmentError("PAGE_ID hoặc ACCESS_TOKEN chưa được cấu hình")
 
-        url = f"https://graph.facebook.com/v25.0/{page_id}/feed"
+        url = f"https://graph.facebook.com/v22.0/{page_id}/feed"
         payload = {
             "message": _build_message(list_confession),
             "access_token": page_token,
