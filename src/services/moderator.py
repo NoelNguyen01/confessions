@@ -10,10 +10,9 @@ from datetime import datetime
 
 
 def chat_main_ai(ai_model: str, content_input: str, confession_input: str = "") -> str:
-    models_to_try = [ai_model, "gemini-1.5-flash", "gemini-1.5-pro"]
-    # Bỏ trùng lặp nhưng giữ thứ tự
+    models_to_try = [ai_model, "gemini-2.5-flash", "gemini-2.0-flash"]
     seen = set()
-    models_to_try = [m for m in models_to_try if not (m in seen or seen.add(m))]
+    models_to_try = [m for m in models_to_try if m and not (m in seen or seen.add(m))]
 
     for model_name in models_to_try:
         try:
@@ -23,10 +22,8 @@ def chat_main_ai(ai_model: str, content_input: str, confession_input: str = "") 
             )
             if response and response.text:
                 return response.text
-        except APIError as e:
-            print(f"⚠️ Gemini model {model_name} error: {e}", flush=True)
         except Exception as e:
-            print(f"⚠️ Gemini model {model_name} exception: {e}", flush=True)
+            print(f"⚠️ Gemini model {model_name} error: {e}", flush=True)
 
     return ""
 

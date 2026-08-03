@@ -118,21 +118,27 @@ def post_fanpage() -> dict:
         except Exception as t_err:
             print(f"   ⚠️ Token exchange info: {t_err}", flush=True)
 
+        # Danh sách endpoint thử nghiệm (/me/feed là chuẩn nhất khi dùng Page Token)
+        candidate_endpoints = [
+            f"https://graph.facebook.com/v22.0/me/feed",
+            f"https://graph.facebook.com/v22.0/{env_page_id}/feed",
+            f"https://graph.facebook.com/v22.0/1327276117125256/feed"
+        ]
+
         last_res = None
-        for pid in candidate_page_ids:
-            print(f"   🚀 Thử đăng bài lên Facebook Page ID: {pid}...", flush=True)
-            url = f"https://graph.facebook.com/{pid}/feed"
+        for endpoint_url in candidate_endpoints:
+            print(f"   🚀 Thử đăng bài lên Facebook Endpoint: {endpoint_url}...", flush=True)
             payload = {
                 "message": _build_message(list_confession),
                 "access_token": page_token,
             }
 
-            response = requests.post(url, data=payload, timeout=30)
+            response = requests.post(endpoint_url, data=payload, timeout=30)
             res_data = response.json()
-            print(f"   Facebook API [{pid}] response: status={response.status_code}, data={res_data}", flush=True)
+            print(f"   Facebook API response: status={response.status_code}, data={res_data}", flush=True)
 
             if response.status_code == 200 and "id" in res_data:
-                logger.info("post_fanpage: posted %d confessions to page %s", len(list_confession), pid)
+                logger.info("post_fanpage: posted %d confessions to %s", len(list_confession), endpoint_url)
                 return {"message": "Posted successfully", "success": True, "data": res_data}
             last_res = res_data
 
