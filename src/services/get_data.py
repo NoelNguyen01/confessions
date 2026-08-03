@@ -16,7 +16,13 @@ def _get_sheet_client():
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive",
     ]
-    creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+    creds_json = getenv("GOOGLE_CREDENTIALS_JSON")
+    if creds_json:
+        import json
+        info = json.loads(creds_json)
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(info, scope)
+    else:
+        creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
     return gspread.authorize(creds)
 
 
