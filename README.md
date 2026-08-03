@@ -12,6 +12,26 @@ Dự án này chạy theo đúng luồng sau:
 
 ---
 
+# 🪟 BẢN WINDOWS 10 (hướng dẫn nhanh)
+
+> Repo này đã được chỉnh để chạy được trên Windows 10:
+> - Đã bỏ `gunicorn`, `pexpect`, `ptyprocess` (chỉ chạy được trên Linux).
+> - Có sẵn `setup.bat`, `run.bat`, `ngrok.bat`, `.env.example`.
+
+## Bước nhanh trên Windows
+
+1. **Cài Python 3.8+** tại https://python.org — khi cài **tick chọn "Add Python to PATH"**.
+2. Tải repo về và giải nén (hoặc `git clone`).
+3. Copy file **`credentials.json`** (tạo ở mục 6 bên dưới) vào **đúng thư mục gốc** của project (cùng chỗ với `run.py`).
+4. **Bấm đúp `setup.bat`** → tự tạo `.venv`, cài dependencies, tạo file `.env` từ `.env.example`.
+5. **Mở file `.env`** bằng Notepad và điền: `MONGO_URI`, `YOUR_KEY`, `SHEET_NAME`, `GOOGLE_AI_API_KEY`, (tuỳ chọn) `ACCESS_TOKEN`/`PAGE_ID`.
+6. **Bấm đúp `run.bat`** để chạy server → URL là `http://localhost:3000`.
+7. Muốn nhận ping từ Google Form → **bấm đúp `ngrok.bat`** để có URL công khai `https://xxxx.ngrok-free.dev`, rồi dán URL đó vào Apps Script (`https://xxxx.ngrok-free.dev/submit`).
+
+> ⚠️ Lưu ý: server chỉ nhận ping được từ Google Form khi có **URL công khai** (ngrok/VPS). `localhost` không truy cập được từ internet.
+
+---
+
 ## 0) Checklist nhanh (ông làm theo thứ tự này)
 
 - [ ] Tạo Google Form và liên kết với Google Sheet
@@ -28,29 +48,41 @@ Dự án này chạy theo đúng luồng sau:
 
 ## 1) Yêu cầu hệ thống
 
-- Ubuntu (Khuyên dùng)
-- Python >= 3.8
+- Windows 10 (bản này) **hoặc** Ubuntu/Linux
+- Python >= 3.8 (trên Windows: tick **"Add Python to PATH"** khi cài)
 - pip
 - (Tuỳ chọn) MongoDB Atlas / MongoDB local
 - (Tuỳ chọn) Facebook Page + quyền quản lý Page để lấy token
 
 ---
 
-## 2) Cài đặt server (Ubuntu)
+## 2) Cài đặt server
 
-### 2.1 Clone repo
+### 2.0 Trên Windows 10 (khuyên dùng)
+
+Không cần gõ lệnh tay, chỉ cần:
+
+```bat
+setup.bat   :: tạo .venv + cài dependencies + tạo .env
+run.bat     :: chạy server (http://localhost:3000)
+ngrok.bat   :: mở tunnel công khai cho Apps Script
+```
+
+Các bước chi tiết nằm ở phần **BẢN WINDOWS 10** ở đầu README.
+
+### 2.1 Trên Ubuntu/Linux: Clone repo
 ```bash
 git clone https://github.com/laivansam11920/CONFESSION.git
 cd CONFESSION
 ```
 
-### 2.2 Tạo môi trường ảo
+### 2.2 Tạo môi trường ảo (Ubuntu/Linux)
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-### 2.3 Cài dependencies
+### 2.3 Cài dependencies (Ubuntu/Linux)
 Nếu có `requirements.txt`:
 ```bash
 pip install -r requirements.txt
@@ -65,7 +97,8 @@ pip install flask requests python-dotenv pymongo google-api-python-client google
 
 ## 3) Biến môi trường (.env)
 
-Tạo file `.env` trong thư mục server (thư mục chạy app):
+Trong repo đã có sẵn file mẫu **`.env.example`**.
+Copy nó thành `.env` (trên Windows: `copy .env.example .env`) rồi điền giá trị thật:
 
 ```env
 # Database
@@ -85,16 +118,14 @@ SHEET_NAME=Confession_app
 CONFESSION_QUESTION=Confession của bạn là gì?
 EMAIL_QUESTION=Gmail liên hệ của bạn là gì?
 
-# Format message (tuỳ code)
-TOTAL_MES=DANH SÁCH CONFESSION MỚI NHẤT\n\n
-
-# Đường dẫn credentials.json trên Ubuntu
-GOOGLE_APPLICATION_CREDENTIALS=/confession_app/credentials.json
+# Google AI
+GOOGLE_AI_API_KEY=
+PORT=3000
 ```
 
 ### Giải thích các biến “quan trọng thật”
 - `SHEET_NAME`: tên tab sheet chứa câu trả lời (ví dụ `Confession_app`)
-- `GOOGLE_APPLICATION_CREDENTIALS`: đường dẫn file credentials.json (service account key)
+- `credentials.json`: file key của Service Account — đặt **cùng thư mục gốc project** (cùng chỗ `run.py`). Code đọc theo đường dẫn tương đối `credentials.json`, nên **không** cần biến `GOOGLE_APPLICATION_CREDENTIALS`.
 - `YOUR_KEY`: khoá để server từ chối ping giả mạo
 
 ---
@@ -123,7 +154,8 @@ Mở Google Sheet → **Extensions (Tiện ích mở rộng)** → **Apps Script
 ```javascript
 function onFormSubmit(e) {
   try {
-    var url = "https://inundatory-unpigmented-patsy.ngrok-free.dev/submit";
+    // VD: var url = "https://inundatory-unpigmented-patsy.ngrok-free.dev/submit";
+    var url = "https://THAY_DOMAIN_NGROK_CUA_BAN.ngrok-free.dev/submit";
 
     if (!e) {
       console.log("e bị rỗng, hàm này cần được chạy bởi Trigger!");
@@ -165,8 +197,7 @@ Apps Script → **Triggers (Kích hoạt)** → Add Trigger:
 
 ## 6) Lấy `credentials.json` trong Google Cloud Console (Sheets API + Drive API)
 
-Mục tiêu: có file key JSON đặt tại:
-`/home/laivansam/confession_app/credentials.json`
+Mục tiêu: có file key JSON đặt tại **thư mục gốc project** (cùng chỗ `run.py`, cạnh file `.env`).
 
 ### 6.1 Tạo Google Cloud Project
 1. Vào Google Cloud Console
@@ -198,18 +229,15 @@ Vào **APIs & Services** → **Library**:
 File tải về có dạng: `xxxxx-xxxxx.json`  
 => Đó chính là `credentials.json` (service account key).
 
-### 6.5 Đưa file về đúng path trên Ubuntu
-Giả sử file tải về nằm trong `~/Downloads/`:
+### 6.5 Đưa file về đúng thư mục
 
+**Trên Windows:** copy file `xxxxx-xxxxx.json` tải về vào thư mục gốc project và **đổi tên thành `credentials.json`** (hoặc bấm đúp `setup.bat` — nó sẽ nhắc bạn nếu chưa có file này).
+
+**Trên Ubuntu/Linux:** (giả sử file nằm trong `~/Downloads/`)
 ```bash
 mkdir -p /home/laivansam/confession_app
 mv ~/Downloads/*.json /home/laivansam/confession_app/credentials.json
 chmod 600 /confession_app/credentials.json
-```
-
-Kiểm tra:
-```bash
-ls -l /confession_app/credentials.json
 ```
 
 ### 6.6 Share Google Sheet cho Service Account (BẮT BUỘC)
@@ -225,9 +253,15 @@ Nếu không share, server sẽ báo kiểu “The caller does not have permissi
 ## 7) Public URL cho server (ngrok/VPS)
 
 ### 7.1 Ngrok (nhanh để test)
-Chạy server local (ví dụ port 5000) rồi:
+
+**Trên Windows:** bấm đúp `ngrok.bat` (nhập port mặc định là `3000`), hoặc tự chạy:
+```bat
+ngrok http 3000
+```
+
+**Trên Ubuntu/Linux:**
 ```bash
-ngrok http 5000
+ngrok http 3000
 ```
 
 Copy domain `https://xxxxx.ngrok-free.dev`  
@@ -260,13 +294,18 @@ Bạn chạy script bằng nút Run trong Apps Script editor.
 
 ### 9.2 Server nhận ping nhưng không đọc được sheet
 - Quên share sheet cho service account
-- Sai `SPREADSHEET_ID` / sai `SHEET_NAME`
-- Sai đường dẫn `GOOGLE_APPLICATION_CREDENTIALS`
+- Sai `SHEET_NAME` (phải khớp tên tab sheet)
+- Không có file `credentials.json` đúng chỗ (phải nằm ở thư mục gốc project, cùng chỗ `run.py`)
+- `credentials.json` không phải file key JSON của Service Account đúng project
 
 ### 9.3 File credentials.json bị lộ
-- Không commit lên GitHub
-- `chmod 600`
+- Không commit lên GitHub (đã nằm trong `.gitignore`)
 - Đừng gửi file lên chat/public
+
+### 9.4 Windows: “python không phải là lệnh”
+- Khi cài Python trên Windows, **tick "Add Python to PATH"**.
+- Nếu đã cài rồi, gỡ cài lại hoặc chạy `py` thay cho `python` (Windows Launcher).
+- `setup.bat` dùng lệnh `python`; nếu máy chỉ có `py`, mở `setup.bat` sửa `python` → `py -3`.
 
 ---
 

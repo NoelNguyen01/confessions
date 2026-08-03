@@ -39,7 +39,7 @@ def _acquire_lock(lock_collection) -> bool:
     TTL 5 phút để tránh deadlock khi process chết giữa chừng.
     """
     now = datetime.now(timezone.utc)
-    five_minutes_ago = now.replace(minute=now.minute - 5) if now.minute >= 5 else now
+    five_minutes_ago = now - timedelta(minutes=5)
 
     result = lock_collection.find_one_and_update(
         {
