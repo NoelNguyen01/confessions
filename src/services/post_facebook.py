@@ -96,6 +96,10 @@ def post_fanpage() -> dict:
         if not env_page_id or not user_token:
             raise EnvironmentError("PAGE_ID hoặc ACCESS_TOKEN chưa được cấu hình")
 
+        print(f"   🔍 Check Access Token: Độ dài={len(user_token)}, Tiền tố='{user_token[:15]}...'", flush=True)
+        if not user_token.startswith("EAA"):
+            print(f"   ⚠️ CẢNH BÁO: ACCESS_TOKEN có vẻ SAI LOẠI! Token Graph API chuẩn phải bắt đầu bằng 'EAA...'", flush=True)
+
         # Danh sách Page ID thử nghiệm (bao gồm PAGE_ID từ env và Real Delegate Page ID: 1327276117125256)
         candidate_page_ids = [env_page_id, "1327276117125256"]
         seen = set()
