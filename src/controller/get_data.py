@@ -24,15 +24,25 @@ def get_data_sheet() -> dict:
                 "data": [],
             }, 404
 
+        print("\n==================================================", flush=True)
+        print("📌 [BƯỚC 1/4] Kéo dữ liệu mới nhất từ Google Sheet...", flush=True)
         res = _save_confession(db.confession_data, confession, safe_email)
+        print(f"➜ Kết quả lưu MongoDB: {res.get('message')}", flush=True)
         
         # Auto trigger AI Censorship & Auto Post to Facebook Page
         try:
+            print("🤖 [BƯỚC 2/4] Đang gửi nội dung sang AI Gemini để kiểm duyệt...", flush=True)
             from src.services.moderator import _get_check_confession
             from src.services.post_facebook import post_fanpage
-            _get_check_confession()
-            post_fanpage()
+            ai_res = _get_check_confession()
+            print(f"➜ AI Duyệt xong: {ai_res}", flush=True)
+
+            print("🚀 [BƯỚC 3/4] Đang gửi bài viết sang Facebook Graph API...", flush=True)
+            fb_res = post_fanpage()
+            print(f"➜ Kết quả Facebook API: {fb_res}", flush=True)
+            print("==================================================\n", flush=True)
         except Exception as pipeline_err:
+            print(f"❌ [LỖI PIPELINE]: {pipeline_err}", flush=True)
             logger.error("Error in auto post pipeline: %s", pipeline_err)
 
         return res, 200
