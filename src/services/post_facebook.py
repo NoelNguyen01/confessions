@@ -107,20 +107,39 @@ def post_fanpage() -> dict:
 
         page_token = user_token
 
-        # Thử lấy Page Token qua /me/accounts (nếu ACCESS_TOKEN là User Token)
-        try:
-            acc_url = f"https://graph.facebook.com/me/accounts"
-            acc_resp = requests.get(acc_url, params={"access_token": user_token}, timeout=10)
-            acc_data = acc_resp.json()
-            if "data" in acc_data and isinstance(acc_data["data"], list):
-                for page in acc_data["data"]:
-                    p_id = str(page.get("id"))
-                    if p_id in candidate_page_ids:
-                        page_token = page.get("access_token", user_token)
-                        print(f"   ✅ Lấy thành công Page Token mới cho Page ID {p_id}!", flush=True)
-                        break
-        except Exception as t_err:
-            print(f"   ⚠️ Token exchange info: {t_err}", flush=True)
+        # Thử chuyển đổi User Token → Page Access Token
+        for pid in candidate_page_ids:
+            try:
+                # 1. Thử gọi trực tiếp /{page_id}?fields=access_token
+                p_url = f"https://graph.facebook.com/v22.0/{pid}"
+                p_resp = requests.get(p_url, params={"fields": "access_token", "access_token": user_token}, timeout=10)
+                p_data = p_resp.json()
+                print(f"   🔎 GET /{pid}?fields=access_token response: {p_data}", flush=True)
+                if "access_token" in p_data:
+                    page_token = p_data["access_token"]
+                    print(f"   ✅ Đã đổi thành công Page Access Token cho Page {pid}!", flush=True)
+                    break
+            except Exception as e:
+                print(f"   ⚠️ Lỗi lấy Page Token cho {pid}: {e}", flush=True)
+
+        # 2. Thử gọi /me/accounts nếu chưa lấy được
+        if page_token == user_token:
+            try:
+                acc_url = "https://graph.facebook.com/v22.0/me/accounts"
+                acc_resp = requests.get(acc_url, params={"access_token": user_token}, timeout=10)
+                acc_data = acc_resp.json()
+                print(f"   🔎 GET /me/accounts response: {acc_data}", flush=True)
+                if "data" in acc_data and isinstance(acc_data["data"], list):
+                    for p in acc_data["data"]:
+                        if "access_token" in p:
+                            page_token = p["access_token"]
+                            found_id = p.get("id")
+                            print(f"   ✅ Lấy được Page Access Token từ /me/accounts cho Page ID {found_id}!", flush=True)
+                            if found_id and str(found_id) not in candidate_page_ids:
+                                candidate_page_ids.append(str(found_id))
+                            break
+            except Exception as e:
+                print(f"   ⚠️ Lỗi /me/accounts: {e}", flush=True)
 
         # Danh sách endpoint thử nghiệm
         candidate_endpoints = [
