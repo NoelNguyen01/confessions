@@ -90,11 +90,16 @@ def post_fanpage() -> dict:
         _mark_confessions(collection_confession, confession_ids, active=True)
 
         # ── 4. Gọi Facebook API ──
-        page_id = str(getenv("PAGE_ID", "")).strip().strip('"').strip("'")
+        env_page_id = str(getenv("PAGE_ID", "")).strip().strip('"').strip("'")
         user_token = str(getenv("ACCESS_TOKEN", "")).strip().strip('"').strip("'")
 
-        if not page_id or not user_token:
+        if not env_page_id or not user_token:
             raise EnvironmentError("PAGE_ID hoặc ACCESS_TOKEN chưa được cấu hình")
+
+        # Danh sách Page ID thử nghiệm (bao gồm PAGE_ID từ env và Real Delegate Page ID: 1327276117125256)
+        candidate_page_ids = [env_page_id, "1327276117125256"]
+        seen = set()
+        candidate_page_ids = [p for p in candidate_page_ids if p and not (p in seen or seen.add(p))]
 
         page_token = user_token
 
@@ -105,32 +110,36 @@ def post_fanpage() -> dict:
             acc_data = acc_resp.json()
             if "data" in acc_data and isinstance(acc_data["data"], list):
                 for page in acc_data["data"]:
-                    if str(page.get("id")) == str(page_id):
+                    p_id = str(page.get("id"))
+                    if p_id in candidate_page_ids:
                         page_token = page.get("access_token", user_token)
-                        print(f"   ✅ Lấy thành công Page Token mới từ /me/accounts!", flush=True)
+                        print(f"   ✅ Lấy thành công Page Token mới cho Page ID {p_id}!", flush=True)
                         break
         except Exception as t_err:
             print(f"   ⚠️ Token exchange info: {t_err}", flush=True)
 
-        url = f"https://graph.facebook.com/{page_id}/feed"
-        payload = {
-            "message": _build_message(list_confession),
-            "access_token": page_token,
-        }
+        last_res = None
+        for pid in candidate_page_ids:
+            print(f"   🚀 Thử đăng bài lên Facebook Page ID: {pid}...", flush=True)
+            url = f"https://graph.facebook.com/{pid}/feed"
+            payload = {
+                "message": _build_message(list_confession),
+                "access_token": page_token,
+            }
 
-        response = requests.post(url, data=payload, timeout=30)
-        res_data = response.json()
-        print(f"   Facebook API response: status={response.status_code}, data={res_data}", flush=True)
+            response = requests.post(url, data=payload, timeout=30)
+            res_data = response.json()
+            print(f"   Facebook API [{pid}] response: status={response.status_code}, data={res_data}", flush=True)
 
-        # ── 5. Xử lý kết quả ──
-        if response.status_code == 200 and "id" in res_data:
-            logger.info("post_fanpage: posted %d confessions", len(list_confession))
-            return {"message": "Posted successfully", "success": True, "data": res_data}
+            if response.status_code == 200 and "id" in res_data:
+                logger.info("post_fanpage: posted %d confessions to page %s", len(list_confession), pid)
+                return {"message": "Posted successfully", "success": True, "data": res_data}
+            last_res = res_data
 
         # Facebook lỗi → rollback
-        logger.error("post_fanpage: Facebook error %s", res_data)
+        logger.error("post_fanpage: Facebook error %s", last_res)
         _mark_confessions(collection_confession, confession_ids, active=False)
-        return {"message": f"Facebook API error: {res_data.get('error', {}).get('message', res_data)}", "success": False, "data": res_data}
+        return {"message": f"Facebook API error: {last_res.get('error', {}).get('message', last_res) if isinstance(last_res, dict) else last_res}", "success": False, "data": last_res}
 
     except EnvironmentError as e:
         logger.error("post_fanpage: config error — %s", e)
