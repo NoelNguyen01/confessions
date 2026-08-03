@@ -45,6 +45,8 @@ def get_data_sheet() -> dict:
             print(f"❌ [LỖI PIPELINE]: {pipeline_err}", flush=True)
             logger.error("Error in auto post pipeline: %s", pipeline_err)
 
+        if isinstance(res, tuple):
+            return res
         return res, 200
 
     except gspread.exceptions.APIError as e:
