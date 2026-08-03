@@ -2,7 +2,7 @@ import requests
 from os import getenv
 from src.extension.db import db
 from src.utils.logger import logger
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 CONFESSION_LIMIT = 50
 SEPARATOR = "─" * 20
