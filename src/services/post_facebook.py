@@ -89,9 +89,23 @@ def post_fanpage() -> dict:
         # ── 3. Đánh dấu "đang xử lý" trước khi gọi API ──
         _mark_confessions(collection_confession, confession_ids, active=True)
 
-        # ── 4. Gọi Facebook API ──
+        # ── 4. Gọi Facebook API hoặc Webhook ──
+        webhook_url = str(getenv("FB_WEBHOOK_URL", "")).strip().strip('"').strip("'")
         env_page_id = str(getenv("PAGE_ID", "")).strip().strip('"').strip("'")
         user_token = str(getenv("ACCESS_TOKEN", "")).strip().strip('"').strip("'")
+
+        # 🚀 CÁCH 1: Nếu cài FB_WEBHOOK_URL (Pipedream/Make), bắn trực tiếp không cần token
+        if webhook_url:
+            print(f"   🚀 Đang gửi bài qua Webhook Tự Động: {webhook_url[:30]}...", flush=True)
+            message_text = _build_message(list_confession)
+            try:
+                res = requests.post(webhook_url, json={"message": message_text, "confessions": parse_json(list_confession)}, timeout=30)
+                print(f"   Webhook response: status={res.status_code}", flush=True)
+                if res.status_code in (200, 201, 204):
+                    logger.info("post_fanpage: posted via webhook successfully")
+                    return {"message": "Posted successfully via webhook", "success": True}
+            except Exception as w_err:
+                print(f"   ⚠️ Lỗi Webhook: {w_err}", flush=True)
 
         if not env_page_id or not user_token:
             raise EnvironmentError("PAGE_ID hoặc ACCESS_TOKEN chưa được cấu hình")
