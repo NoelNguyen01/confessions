@@ -28,9 +28,7 @@ def init_db() -> Database:
         if _db is not None:
             return _db
 
-        uri = getenv("MONGO_URI")
-        if not uri:
-            raise ValueError("MONGO_URI is not set")
+        uri = getenv("MONGO_URI", "mongodb://localhost:27017")
 
         try:
             _client = MongoClient(
