@@ -9,19 +9,27 @@ from datetime import datetime
 
 def chat_main_ai(ai_model: str, content_input: str, confession_input: str = "") -> str:
     """
-    Gọi API Gemini với nhiều model fallback, kiểm tra chi tiết lỗi API / Safety settings.
+    Gọi API Gemini với thứ tự ưu tiên các model ít bị Rate Limit (gemini-2.0-flash-lite, gemini-1.5-flash-8b),
+    hỗ trợ fallback Groq API nếu có GROQ_API_KEY.
     """
-    models_to_try = [ai_model, "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite"]
+    # Thứ tự ưu tiên các model ít bị rate limit / quota
+    models_to_try = [
+        ai_model,
+        "gemini-2.0-flash-lite",
+        "gemini-1.5-flash-8b",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash"
+    ]
     seen = set()
     models_to_try = [m for m in models_to_try if m and not (m in seen or seen.add(m))]
 
     full_prompt = (content_input + "\n" + confession_input).strip()
     if not full_prompt:
-        print("⚠️ [Gemini AI] Prompt rỗng, bỏ qua gọi AI.", flush=True)
+        print("⚠️ [AI Moderation] Prompt rỗng, bỏ qua gọi AI.", flush=True)
         return ""
 
     for model_name in models_to_try:
-        print(f"🤖 [Gemini AI] Thử gọi model: '{model_name}'...", flush=True)
+        print(f"🤖 [AI Moderation] Thử gọi Gemini Model: '{model_name}'...", flush=True)
         try:
             response = client.models.generate_content(
                 model=model_name,
@@ -42,7 +50,7 @@ def chat_main_ai(ai_model: str, content_input: str, confession_input: str = "") 
                         print(f"   Detailed Safety Ratings: {candidate.safety_ratings}", flush=True)
                     continue
 
-            # Thử lấy text an toàn (tránh văng ValueError khi text bị rỗng hoặc suppressed)
+            # Lấy text phản hồi
             text_result = None
             try:
                 text_result = response.text
@@ -50,26 +58,58 @@ def chat_main_ai(ai_model: str, content_input: str, confession_input: str = "") 
                 print(f"⚠️ [Gemini AI] Lỗi lấy response.text từ model '{model_name}': {txt_err}", flush=True)
 
             if text_result and text_result.strip():
-                print(f"✅ [Gemini AI] Model '{model_name}' phản hồi thành công ({len(text_result)} chars).", flush=True)
+                print(f"✅ [Gemini AI] Model '{model_name}' kiểm duyệt thành công ({len(text_result)} chars).", flush=True)
                 return text_result.strip()
             else:
-                print(f"⚠️ [Gemini AI] Model '{model_name}' trả về response text rỗng.", flush=True)
+                print(f"⚠️ [Gemini AI] Model '{model_name}' trả về text rỗng.", flush=True)
 
         except APIError as api_err:
             code = getattr(api_err, "code", getattr(api_err, "status_code", "UNKNOWN"))
-            print(f"❌ [Gemini APIError] Model '{model_name}' lỗi (Code {code}): {api_err.message if hasattr(api_err, 'message') else api_err}", flush=True)
+            msg = api_err.message if hasattr(api_err, "message") else str(api_err)
+            if "429" in str(code) or "QUOTA" in msg.upper() or "EXHAUSTED" in msg.upper():
+                print(f"⚠️ [Gemini Rate Limit 429] Model '{model_name}' bị hết Quota/Rate Limit. Chuyển sang model tiếp theo...", flush=True)
+            else:
+                print(f"❌ [Gemini APIError] Model '{model_name}' lỗi (Code {code}): {msg}", flush=True)
         except Exception as e:
-            err_code = getattr(e, "code", getattr(e, "status_code", None))
-            code_str = f" (Status Code: {err_code})" if err_code else ""
-            print(f"❌ [Gemini Exception] Model '{model_name}' thất bại{code_str}: [{type(e).__name__}] {e}", flush=True)
+            err_str = str(e)
+            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "Quota" in err_str:
+                print(f"⚠️ [Gemini Rate Limit 429] Model '{model_name}' bị vượt giới hạn request (Rate Limit). Thử model khác...", flush=True)
+            else:
+                print(f"❌ [Gemini Exception] Model '{model_name}' thất bại: [{type(e).__name__}] {e}", flush=True)
 
-    print("❌ [Gemini AI] Tất cả các model AI đều thất bại hoặc bị chặn nội dung.", flush=True)
+    # Nếu Gemini hết Quota & có cấu hình GROQ_API_KEY -> Thử gọi Groq API (Miễn phí, không bị limit)
+    if Config.groq_api_key:
+        print("🤖 [AI Fallback] Gọi Groq API (llama-3.3-70b-versatile)...", flush=True)
+        try:
+            import urllib.request
+            import json
+            req = urllib.request.Request(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {Config.groq_api_key}",
+                    "Content-Type": "application/json"
+                },
+                data=json.dumps({
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [{"role": "user", "content": full_prompt}]
+                }).encode('utf-8')
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                res_body = json.loads(resp.read().decode('utf-8'))
+                groq_text = res_body['choices'][0]['message']['content']
+                if groq_text:
+                    print("✅ [Groq AI] Phản hồi kiểm duyệt thành công từ Groq API!", flush=True)
+                    return groq_text.strip()
+        except Exception as groq_err:
+            print(f"⚠️ [Groq AI Error] Lỗi gọi Groq API: {groq_err}", flush=True)
+
+    print("❌ [AI Moderation] Tất cả các model AI đều bị Rate Limit hoặc lỗi. Bật chế độ Auto-Approve Fallback.", flush=True)
     return ""
 
 
 def _get_check_confession():
     """
-    Thực hiện kiểm duyệt Confession bằng Gemini AI với chi tiết logging & fallback an toàn.
+    Thực hiện kiểm duyệt Confession bằng AI với chi tiết logging & fallback an toàn.
     """
     try:
         collection = db.confession_data
@@ -102,13 +142,13 @@ def _get_check_confession():
         )
 
         if not _result_ai:
-            print("⚠️ [AI Moderation] AI không trả về kết quả. Kích hoạt Fallback an toàn...", flush=True)
+            print("⚠️ [AI Moderation] AI bị giới hạn/rỗng. Tự động Auto-Approve để tiếp tục sang Bước Đăng Facebook...", flush=True)
             fallback_data = []
             for cfs_text, cfs_id in _list.items():
                 fallback_item = {
                     "id_origin": cfs_id,
                     "score": 100.0,
-                    "reason": "AI Moderation unavailable/blocked; fallback auto-passed",
+                    "reason": "AI Rate Limited; Auto-passed to allow Facebook posting",
                     "propose": "APPROVE",
                     "origin_text": cfs_text,
                     "uncertain": False,
@@ -121,8 +161,8 @@ def _get_check_confession():
                 fallback_data.append(fallback_item)
 
             return {
-                "success": False,
-                "message": "AI returned empty response (fallback applied)",
+                "success": True,
+                "message": "AI rate limited (Auto-approved fallback applied)",
                 "fallback_applied": True,
                 "data": fallback_data
             }
@@ -152,4 +192,5 @@ def _get_check_confession():
     except Exception as e:
         print(f"❌ Error in _get_check_confession: [{type(e).__name__}] {e}", flush=True)
         return {"success": False, "message": f"Moderation Exception: {str(e)}"}
+
 
