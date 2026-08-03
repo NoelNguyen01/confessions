@@ -57,9 +57,13 @@ def get_data_sheet() -> dict:
             "data": [],
         }, 500
     except Exception as e:
+        import traceback
+        tb_str = traceback.format_exc()
+        print(f"❌ UNEXPECTED ERROR IN GET_DATA_SHEET:\n{tb_str}", flush=True)
         logger.exception("Unexpected error in get_data_sheet")
         return {
             "message": f"Internal Server Error: {str(e)}",
+            "error_detail": tb_str,
             "success": False,
             "data": [],
         }, 500
