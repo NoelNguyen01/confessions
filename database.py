@@ -31,13 +31,15 @@ def init_db() -> Database:
         uri = getenv("MONGO_URI", "mongodb://localhost:27017")
 
         try:
+            import certifi
             _client = MongoClient(
                 uri,
                 maxPoolSize=50,
                 minPoolSize=5,
-                serverSelectionTimeoutMS=5000,
-                connectTimeoutMS=5000,
-                socketTimeoutMS=5000,
+                serverSelectionTimeoutMS=10000,
+                connectTimeoutMS=10000,
+                socketTimeoutMS=10000,
+                tlsCAFile=certifi.where(),
             )
 
             _db = _client["Confession"]
