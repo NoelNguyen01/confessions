@@ -40,10 +40,8 @@ def init_db() -> Database:
                 socketTimeoutMS=5000,
             )
 
-            _client.admin.command("ping")
-
             _db = _client["Confession"]
-            print("MongoDB connected successfully", flush=True)
+            print("MongoDB initialized", flush=True)
 
             return _db
 
