@@ -91,10 +91,25 @@ def post_fanpage() -> dict:
 
         # ── 4. Gọi Facebook API ──
         page_id = getenv("PAGE_ID")
-        page_token = getenv("ACCESS_TOKEN")
+        user_token = getenv("ACCESS_TOKEN")
 
-        if not page_id or not page_token:
+        if not page_id or not user_token:
             raise EnvironmentError("PAGE_ID hoặc ACCESS_TOKEN chưa được cấu hình")
+
+        # Tự động đổi User Token → Page Token
+        print(f"   Đang lấy Page Access Token cho page {page_id}...", flush=True)
+        accounts_url = f"https://graph.facebook.com/v22.0/me/accounts?access_token={user_token}"
+        acc_resp = requests.get(accounts_url, timeout=15)
+        acc_data = acc_resp.json()
+        print(f"   /me/accounts response: {acc_data}", flush=True)
+
+        page_token = user_token  # fallback
+        if "data" in acc_data:
+            for page in acc_data["data"]:
+                if str(page.get("id")) == str(page_id):
+                    page_token = page["access_token"]
+                    print(f"   ✅ Đã lấy được Page Token!", flush=True)
+                    break
 
         url = f"https://graph.facebook.com/v22.0/{page_id}/feed"
         payload = {
@@ -104,6 +119,7 @@ def post_fanpage() -> dict:
 
         response = requests.post(url, data=payload, timeout=30)
         res_data = response.json()
+        print(f"   Facebook response: {res_data}", flush=True)
 
         # ── 5. Xử lý kết quả ──
         if response.status_code == 200 and "id" in res_data:

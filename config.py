@@ -7,6 +7,6 @@ load_dotenv(find_dotenv(), override=True)
 class Config:
     api_key = getenv("GOOGLE_AI_API_KEY")
     AI_MODEL_NAME = getenv(
-        "AI_MODEL_NAME", "gemma-4-31b-it"
-    )  # model suggestion: gemini-3.1-flash-lite
+        "AI_MODEL_NAME", "gemini-2.0-flash"
+    )  # model mặc định: gemini-2.0-flash (miễn phí)
     REPOST_COOLDOWN_HOURS = 24
