@@ -13,4 +13,5 @@ google-auth-httplib2==0.4.0
 google-auth-oauthlib==1.4.0
 google-genai==2.7.0
 httplib2==0.31.2
+gunicorn
 certifi==2026.5.20
