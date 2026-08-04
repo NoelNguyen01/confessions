@@ -15,10 +15,11 @@ def chat_main_ai(ai_model: str, content_input: str, confession_input: str = "") 
     # Thứ tự ưu tiên các model ít bị rate limit / quota
     models_to_try = [
         ai_model,
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash",
         "gemini-2.0-flash-lite",
-        "gemini-1.5-flash-8b",
-        "gemini-2.0-flash",
-        "gemini-1.5-flash"
+        "gemini-2.0-flash"
     ]
     seen = set()
     models_to_try = [m for m in models_to_try if m and not (m in seen or seen.add(m))]
@@ -92,7 +93,8 @@ def chat_main_ai(ai_model: str, content_input: str, confession_input: str = "") 
                 },
                 data=json.dumps({
                     "model": "llama-3.3-70b-versatile",
-                    "messages": [{"role": "user", "content": full_prompt}]
+                    "messages": [{"role": "user", "content": full_prompt}],
+                    "response_format": {"type": "json_object"}
                 }).encode('utf-8')
             )
 
@@ -170,6 +172,8 @@ def _get_check_confession():
             }
 
         json_data = extract_json(_result_ai)
+        if isinstance(json_data, dict):
+            json_data = [json_data]
         if not json_data or not isinstance(json_data, list):
             print(f"⚠️ [AI Moderation] Không thể parse JSON từ AI output: {_result_ai[:200]}", flush=True)
             return {

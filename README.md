@@ -154,8 +154,9 @@ Mở Google Sheet → **Extensions (Tiện ích mở rộng)** → **Apps Script
 ```javascript
 function onFormSubmit(e) {
   try {
-    // VD: var url = "https://inundatory-unpigmented-patsy.ngrok-free.dev/submit";
-    var url = "https://THAY_DOMAIN_NGROK_CUA_BAN.ngrok-free.dev/submit";
+    // URL server Render (hoặc ngrok). KHÔNG còn là "localhost".
+    // Key có thể nằm trong path: /submit/<YOUR_KEY> HOẶC trong body your_key (server hỗ trợ cả 2).
+    var url = "https://THAY_DOMAIN_RENDER_CUA_BAN.onrender.com/submit";
 
     if (!e) {
       console.log("e bị rỗng, hàm này cần được chạy bởi Trigger!");
@@ -306,6 +307,39 @@ Bạn chạy script bằng nút Run trong Apps Script editor.
 - Khi cài Python trên Windows, **tick "Add Python to PATH"**.
 - Nếu đã cài rồi, gỡ cài lại hoặc chạy `py` thay cho `python` (Windows Launcher).
 - `setup.bat` dùng lệnh `python`; nếu máy chỉ có `py`, mở `setup.bat` sửa `python` → `py -3`.
+
+### 9.5 Render Free bị "ngủ" sau 15 phút → Log không nhảy khi submit Form
+- Render Free **tự Sleep sau 15 phút không có request** và chỉ "thức dậy" khi có request mới (mất vài chục giây).
+- Cần 1 trình **giữ ấm (keep-alive)** bấm vào server mỗi ~10 phút để không bao giờ ngủ:
+  1. Vào https://cron-job.org (hoặc https://uptimerobot.com) tạo **monitor/cron** dạng **HTTP GET**.
+  2. URL bấm vào: `https://THAY_DOMAIN_RENDER_CUA_BAN.onrender.com/health`
+     - Endpoint `/health` không cần key, trả `{"success": true}` ngay khi server còn sống.
+  3. Đặt chu kỳ **mỗi 10 phút** → Render không bao giờ Sleep → log tự nhảy ngay khi có Form.
+- Kiểm tra nhanh server còn sống bằng cách mở `https://THAY_DOMAIN_RENDER_CUA_BAN.onrender.com/health` trên trình duyệt.
+
+### 9.6 Apps Script "ping" nhưng server trả 404 / không nhảy log
+- URL trong Apps Script **phải là URL Render công khai**, KHÔNG phải `localhost`.
+- Endpoint đúng là `/submit` kèm `your_key` trong body **hoặc** `/submit/<YOUR_KEY>` (server hỗ trợ cả 2 từ bản mới).
+- Sau khi sửa code trong Apps Script, nhớ **lưu (Save)** và tạo/kiểm tra lại **Trigger: Event type = On form submit**.
+
+### 9.7 Pipedream nhận bài nhưng không đăng lên Facebook → lỗi 283
+- Lỗi `OAuthException Code 283: Requires pages_read_engagement permission` nghĩa là **App Facebook thiếu quyền Page**, không phải lỗi server.
+- Cách sửa:
+  1. Vào https://developers.facebook.com → chọn App đang dùng.
+  2. Mục **App Review → Permissions and Features**: thêm **`pages_read_engagement`** và **`pages_manage_posts`**.
+  3. Với App đang ở chế độ Development, gán tài khoản **Quynh Tien** làm Admin/Test và **đăng nhập lại** vào App để nhận quyền.
+  4. Trong Pipedream: **Disconnect rồi Connect lại** tài khoản Facebook của Quynh Tien, chọn lại Page, đảm bảo token có 2 quyền trên.
+  5. Test lại bằng cách bấm "Send Test Event" trong Pipedream.
+
+### 9.8 Dữ liệu cũ bị kẹt trong MongoDB (active=True) không được duyệt/đăng
+- Hệ thống chỉ xử lý bài có `active: false`. Bài test cũ `active: true` sẽ bị bỏ qua mãi.
+- Dùng tool đi kèm để liệt kê / reset / xoá:
+  ```bat
+  .venv\Scripts\python.exe script\reset_db.py --list        :: xem bài kẹt
+  .venv\Scripts\python.exe script\reset_db.py --reprocess   :: set active=False để duyệt+đăng lại
+  .venv\Scripts\python.exe script\reset_db.py --delete      :: xoá vĩnh viễn bài kẹt
+  ```
+- Nếu đổi **mật khẩu MongoDB Atlas**: cập nhật lại `MONGO_URI` trong `.env` (và biến môi trường trên Render) với password mới, rồi restart server.
 
 ---
 

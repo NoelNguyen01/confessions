@@ -4,6 +4,11 @@ from os import getenv
 status_bp = Blueprint("status", __name__)
 
 
+@status_bp.route("/health", methods=["GET"])
+def health():
+    return {"success": True, "message": "alive"}, 200
+
+
 @status_bp.route("/status/<api_key>", methods=["GET"])
 def check_status(api_key):
     key_system = str(getenv("YOUR_KEY", ""))

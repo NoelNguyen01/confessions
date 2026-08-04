@@ -1,12 +1,13 @@
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from src.utils.create_id import generate_confession_id
-from src.utils.pares_json import parse_json
 from src.utils.upset_count import get_next_cfs_number
 from datetime import datetime, timedelta, timezone
 from os import getenv
 from functools import lru_cache
 from src.utils.logger import logger
+import os
+from src.utils.parse_json import parse_json
 from config import Config
 
 
@@ -22,7 +23,8 @@ def _get_sheet_client():
         info = json.loads(creds_json)
         creds = ServiceAccountCredentials.from_json_keyfile_dict(info, scope)
     else:
-        creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+        creds_file = "credentials.json.json" if os.path.exists("credentials.json.json") else "credentials.json"
+        creds = ServiceAccountCredentials.from_json_keyfile_name(creds_file, scope)
     return gspread.authorize(creds)
 
 
