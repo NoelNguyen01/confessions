@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: confessions-web
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: GOOGLE_AI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: AI_MODEL_NAME
+        sync: false
+      - key: PORT
+        sync: false
